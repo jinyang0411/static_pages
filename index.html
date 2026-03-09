@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="UTF-8">
+    <title>QR Test</title>
+
+    <!-- RSA PKCS#1 v1.5 -->
+    <script src="QR%20Test_files/jsrsasign-all-min.js"></script>
+
+    <!-- QR Code -->
+    <script src="QR%20Test_files/qrcode.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f2f2f2;
+            margin: 0;
+            padding: 0;
+        }
+
+        h2 {
+            text-align: center;
+            margin: 16px 0;
+            font-size: 22px;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 10px;
+        }
+
+        .panel {
+            background: #fff;
+            padding: 12px;
+            border-radius: 6px;
+            box-sizing: border-box;
+            flex: 1 1 300px; /* flexible width, min 300px */
+            min-width: 280px;
+        }
+
+        .panel h3 {
+            margin-top: 0;
+            font-size: 16px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 6px;
+        }
+
+        label {
+            font-size: 13px;
+            font-weight: bold;
+            display: block;
+            margin-top: 10px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 6px;
+            margin: 6px 0 12px 0;
+            font-family: monospace;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        textarea[readonly] {
+            background: #f0f0f0;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 4px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #qrcode {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        /* Responsive tweaks */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                padding: 8px;
+            }
+
+            h2 {
+                font-size: 20px;
+            }
+
+            button {
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>RSA QR Test</h2>
+
+<div class="container">
+
+    <!-- INPUT PANEL -->
+    <div class="panel">
+        <h3>Input</h3>
+
+        <label>Virtual Card No (10-digit decimal)</label>
+        <input id="cardDec" value="1234567890">
+
+        <label>QR Valid Minutes</label>
+        <input id="validHex" value="0005">
+
+        <label>Date &amp; Time</label>
+        <input id="datetime" type="datetime-local">
+
+        <label>RSA Public Key (Base64)</label>
+        <textarea id="publicKey" rows="4" readonly="readonly">MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAKFdKGVrQkwJd49OemboKoL7C9qpSOzmg7BYDSQiprWW7NnYepLcdpCuNrtK9Xu9R/2ipnZiWpyOF/zvO4/fu7cCAwEAAQ==</textarea>
+        <textarea id="privateKey" rows="6" readonly="readonly">MIIBVQIBADANBgkqhkiG9w0BAQEFAASCAT8wggE7AgEAAkEAoV0oZWtCTAl3j056
+ZugqgvsL2qlI7OaDsFgNJCKmtZbs2dh6ktx2kK42u0r1e71H/aKmdmJanI4X/O87
+j9+7twIDAQABAkAbmd2xC1m5u9zRjHDvbULoSJzMeCxbKUrZPRZyWeL+KF7Vqdrt
+3tkoKVVm/YnKtWOSg69RsppA9fbe2R/9uzUhAiEA4KzhibRl9iOP2GgWwQMX1fTn
+F+mY4eKH12fpJR4csBkCIQC33JBA2X1USFca25v1EiDB61X7ljKRQ2fE4TURCQ0E
+TwIhAIWbqX/XbK8EFN2vgKCFM16EBg09WDI0IW4imA3/qzW5AiEAouQH8Uw+WwNU
+GHlj7HVJDETBAooI9uVu8+BKMXOBUsUCIEHVGyxv87SCAanHw5kxf1GANtxedDKV
+p/M8L8ojgK9u</textarea>
+        <button onclick="encrypt()">Encrypt &amp; Generate QR</button>
+    </div>
+
+    <!-- OUTPUT PANEL -->
+    <div class="panel">
+        <h3>Output</h3>
+
+        <label>Converted Card No (HEX)</label>
+        <textarea id="cardHexOut" rows="1" readonly="readonly"></textarea>
+
+        <label>Epoch Time (HEX)</label>
+        <textarea id="epochHex" rows="1" readonly="readonly"></textarea>
+
+        <label>Plaintext Data (HEX)</label>
+        <textarea id="plainHex" rows="2" readonly="readonly"></textarea>
+
+        <label>ASCII HEX</label>
+        <textarea id="asciiHex" rows="2" readonly="readonly"></textarea>
+
+        <label>Encrypted (Base64)</label>
+        <textarea id="encrypted" rows="3" readonly="readonly"></textarea>
+
+        <label>OR Value</label>
+        <textarea id="orValue" rows="3" readonly="readonly"></textarea>
+    </div>
+
+    <!-- QR PANEL -->
+    <div class="panel">
+        <h3>QR Code</h3>
+        <div id="qrcode"></div>
+    </div>
+
+</div>
+
+<script>
+function toAsciiHex(str) {
+    return Array.from(str)
+        .map(c => c.charCodeAt(0).toString(16).padStart(2, '0'))
+        .join('')
+        .toUpperCase();
+}
+
+function encrypt() {
+    const cardDec = document.getElementById('cardDec').value.trim();
+
+    if (!/^\d{10}$/.test(cardDec)) {
+        alert("Virtual Card No must be exactly 10 digits");
+        return;
+    }
+
+    // Decimal → HEX (8 chars)
+    const cardHex = parseInt(cardDec, 10)
+        .toString(16)
+        .toUpperCase()
+        .padStart(8, '0');
+    document.getElementById('cardHexOut').value = cardHex;
+
+    const validHex = document.getElementById('validHex').value.toUpperCase();
+    const dt = document.getElementById('datetime').value;
+
+    if (!dt) {
+        alert("Please select Date & Time");
+        return;
+    }
+
+    // Epoch → HEX
+    const epoch = Math.floor(new Date(dt).getTime() / 1000);
+    const epochHex = epoch.toString(16).toUpperCase().padStart(8, '0');
+    document.getElementById('epochHex').value = epochHex;
+
+    // Random 2 bytes
+    const randomHex = Math.floor(Math.random() * 65536)
+        .toString(16)
+        .padStart(4, '0')
+        .toUpperCase();
+    const randomHex1 = Math.floor(Math.random() * 65536)
+        .toString(16)
+        .padStart(4, '0')
+        .toUpperCase();
+	const randomHex2 = Math.floor(Math.random() * 65536)
+        .toString(16)
+        .padStart(4, '0')
+        .toUpperCase();
+    // Plaintext structure
+    const plaintextHex = randomHex + cardHex +randomHex1 + epochHex + randomHex2 + validHex;
+    document.getElementById('plainHex').value = plaintextHex;
+
+    // ASCII HEX
+    document.getElementById('asciiHex').value = toAsciiHex(plaintextHex);
+
+    // RSA Encrypt PKCS#1 v1.5
+    const pubKey = document.getElementById('publicKey').value.trim();
+    const rsa = new RSAKey();
+    rsa.readPKCS8PubKeyHex(b64tohex(pubKey));
+
+    const encryptedHex = rsa.encrypt(plaintextHex);
+    const encryptedBase64 = hex2b64(encryptedHex);
+    document.getElementById('encrypted').value = encryptedBase64;
+
+    // OR value
+    const orValue = "setiaseputeh://v001/" + encryptedBase64;
+    document.getElementById('orValue').value = orValue;
+
+    // QR Code
+    document.getElementById('qrcode').innerHTML = "";
+    new QRCode(document.getElementById("qrcode"), {
+        text: orValue,
+        width: 220,
+        height: 220
+    });
+}
+</script>
+
+
+
+</body></html>
